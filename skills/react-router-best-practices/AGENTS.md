@@ -1,12 +1,11 @@
-# React Best Practices
+# React Router Best Practices
 
 **Version 0.1.0**  
-Vercel Engineering  
 January 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
-> generating, or refactoring React and Next.js codebases at Vercel. Humans  
+> generating, or refactoring React and React Router v7 codebases at Vercel. Humans  
 > may also find it useful, but guidance here is optimized for automation  
 > and consistency by AI-assisted workflows.
 
@@ -14,7 +13,7 @@ January 2026
 
 ## Abstract
 
-Comprehensive performance optimization guide for React and Next.js applications, designed for AI agents and LLMs. Contains 40+ rules across 8 categories, prioritized by impact from critical (eliminating waterfalls, reducing bundle size) to incremental (advanced patterns). Each rule includes detailed explanations, real-world examples comparing incorrect vs. correct implementations, and specific impact metrics to guide automated refactoring and code generation.
+Comprehensive performance optimization guide for React and React Router v7 applications, designed for AI agents and LLMs. Contains 40+ rules across 8 categories, prioritized by impact from critical (eliminating waterfalls, reducing bundle size) to incremental (advanced patterns). Each rule includes detailed explanations, real-world examples comparing incorrect vs. correct implementations, and specific impact metrics to guide automated refactoring and code generation.
 
 ---
 
@@ -23,7 +22,7 @@ Comprehensive performance optimization guide for React and Next.js applications,
 1. [Eliminating Waterfalls](#1-eliminating-waterfalls) — **CRITICAL**
    - 1.1 [Defer Await Until Needed](#11-defer-await-until-needed)
    - 1.2 [Dependency-Based Parallelization](#12-dependency-based-parallelization)
-   - 1.3 [Prevent Waterfall Chains in API Routes](#13-prevent-waterfall-chains-in-api-routes)
+   - 1.3 [Prevent Waterfall Chains in Loaders/Actions](#13-prevent-waterfall-chains-in-loadersactions)
    - 1.4 [Promise.all() for Independent Operations](#14-promiseall-for-independent-operations)
    - 1.5 [Strategic Suspense Boundaries](#15-strategic-suspense-boundaries)
 2. [Bundle Size Optimization](#2-bundle-size-optimization) — **CRITICAL**
@@ -34,13 +33,13 @@ Comprehensive performance optimization guide for React and Next.js applications,
    - 2.5 [Preload Based on User Intent](#25-preload-based-on-user-intent)
 3. [Server-Side Performance](#3-server-side-performance) — **HIGH**
    - 3.1 [Cross-Request LRU Caching](#31-cross-request-lru-caching)
-   - 3.2 [Minimize Serialization at RSC Boundaries](#32-minimize-serialization-at-rsc-boundaries)
-   - 3.3 [Parallel Data Fetching with Component Composition](#33-parallel-data-fetching-with-component-composition)
+   - 3.2 [Minimize Data Serialization](#32-minimize-data-serialization)
+   - 3.3 [Non-Blocking Side Effects](#33-non-blocking-side-effects)
    - 3.4 [Per-Request Deduplication with React.cache()](#34-per-request-deduplication-with-reactcache)
-   - 3.5 [Use after() for Non-Blocking Operations](#35-use-after-for-non-blocking-operations)
+   - 3.5 [Stream Slow Data with `defer`](#35-stream-slow-data-with-defer)
 4. [Client-Side Data Fetching](#4-client-side-data-fetching) — **MEDIUM-HIGH**
    - 4.1 [Deduplicate Global Event Listeners](#41-deduplicate-global-event-listeners)
-   - 4.2 [Use SWR for Automatic Deduplication](#42-use-swr-for-automatic-deduplication)
+   - 4.2 [Use React Query for Automatic Deduplication](#42-use-react-query-for-automatic-deduplication)
 5. [Re-render Optimization](#5-re-render-optimization) — **MEDIUM**
    - 5.1 [Defer State Reads to Usage Point](#51-defer-state-reads-to-usage-point)
    - 5.2 [Extract to Memoized Components](#52-extract-to-memoized-components)
@@ -190,27 +189,27 @@ const { user, config, profile } = await all({
 
 Reference: [https://github.com/shuding/better-all](https://github.com/shuding/better-all)
 
-### 1.3 Prevent Waterfall Chains in API Routes
+### 1.3 Prevent Waterfall Chains in Loaders/Actions
 
 **Impact: CRITICAL (2-10× improvement)**
 
-In API routes and Server Actions, start independent operations immediately, even if you don't await them yet.
+In Loaders and Actions, start independent operations immediately, even if you don't await them yet.
 
 **Incorrect: config waits for auth, data waits for both**
 
 ```typescript
-export async function GET(request: Request) {
+export async function loader({ request, params }) {
   const session = await auth()
   const config = await fetchConfig()
   const data = await fetchData(session.user.id)
-  return Response.json({ data, config })
+  return { data, config }
 }
 ```
 
 **Correct: auth and config start immediately**
 
 ```typescript
-export async function GET(request: Request) {
+export async function loader({ request, params }) {
   const sessionPromise = auth()
   const configPromise = fetchConfig()
   const session = await sessionPromise
@@ -218,7 +217,7 @@ export async function GET(request: Request) {
     configPromise,
     fetchData(session.user.id)
   ])
-  return Response.json({ data, config })
+  return { data, config }
 }
 ```
 
@@ -388,21 +387,6 @@ import TextField from '@mui/material/TextField'
 // Loads only what you use
 ```
 
-**Alternative: Next.js 13.5+**
-
-```js
-// next.config.js - use optimizePackageImports
-module.exports = {
-  experimental: {
-    optimizePackageImports: ['lucide-react', '@mui/material']
-  }
-}
-
-// Then you can keep the ergonomic barrel imports:
-import { Check, X, Menu } from 'lucide-react'
-// Automatically transformed to direct imports at build time
-```
-
 Direct imports provide 15-70% faster dev boot, 28% faster builds, 40% faster cold starts, and significantly faster HMR.
 
 Libraries commonly affected: `lucide-react`, `@mui/material`, `@mui/icons-material`, `@tabler/icons-react`, `react-icons`, `@headlessui/react`, `@radix-ui/react-*`, `lodash`, `ramda`, `date-fns`, `rxjs`, `react-use`.
@@ -462,19 +446,19 @@ export default function RootLayout({ children }) {
 **Correct: loads after hydration**
 
 ```tsx
-import dynamic from 'next/dynamic'
+import { lazy, Suspense } from 'react'
 
-const Analytics = dynamic(
-  () => import('@vercel/analytics/react').then(m => m.Analytics),
-  { ssr: false }
-)
+// Lazy load the component
+const Analytics = lazy(() => import('@vercel/analytics/react').then(m => ({ default: m.Analytics })))
 
 export default function RootLayout({ children }) {
   return (
     <html>
       <body>
         {children}
-        <Analytics />
+        <Suspense fallback={null}>
+          <Analytics />
+        </Suspense>
       </body>
     </html>
   )
@@ -485,7 +469,7 @@ export default function RootLayout({ children }) {
 
 **Impact: CRITICAL (directly affects TTI and LCP)**
 
-Use `next/dynamic` to lazy-load large components not needed on initial render.
+Use `React.lazy` and `<Suspense>` to lazy-load large components not needed on initial render.
 
 **Incorrect: Monaco bundles with main chunk ~300KB**
 
@@ -500,15 +484,16 @@ function CodePanel({ code }: { code: string }) {
 **Correct: Monaco loads on demand**
 
 ```tsx
-import dynamic from 'next/dynamic'
+import { lazy, Suspense } from 'react'
 
-const MonacoEditor = dynamic(
-  () => import('./monaco-editor').then(m => m.MonacoEditor),
-  { ssr: false }
-)
+const MonacoEditor = lazy(() => import('./monaco-editor').then(m => ({ default: m.MonacoEditor })))
 
 function CodePanel({ code }: { code: string }) {
-  return <MonacoEditor value={code} />
+  return (
+    <Suspense fallback={<div>Loading editor...</div>}>
+      <MonacoEditor value={code} />
+    </Suspense>
+  )
 }
 ```
 
@@ -603,114 +588,97 @@ Use when sequential user actions hit multiple endpoints needing the same data wi
 
 Reference: [https://github.com/isaacs/node-lru-cache](https://github.com/isaacs/node-lru-cache)
 
-### 3.2 Minimize Serialization at RSC Boundaries
+### 3.2 Minimize Data Serialization
 
 **Impact: HIGH (reduces data transfer size)**
 
-The React Server/Client boundary serializes all object properties into strings and embeds them in the HTML response and subsequent RSC requests. This serialized data directly impacts page weight and load time, so **size matters a lot**. Only pass fields that the client actually uses.
+Data passed from the server (Loaders/Actions) to the client is serialized into JSON and embedded in the HTML response or network payload. This serialized data directly impacts page weight and load time, so **size matters a lot**. Only pass fields that the client actually uses.
 
 **Incorrect: serializes all 50 fields**
 
 ```tsx
-async function Page() {
-  const user = await fetchUser()  // 50 fields
-  return <Profile user={user} />
+export async function loader() {
+  const user = await fetchUser() // 50 fields
+  return { user }
 }
 
-'use client'
-function Profile({ user }: { user: User }) {
-  return <div>{user.name}</div>  // uses 1 field
+export default function Profile({ loaderData }: Route.ComponentProps) {
+  return <div>{loaderData.user.name}</div> // uses 1 field
 }
 ```
 
 **Correct: serializes only 1 field**
 
 ```tsx
-async function Page() {
+export async function loader() {
   const user = await fetchUser()
-  return <Profile name={user.name} />
+  return { name: user.name }
 }
 
-'use client'
-function Profile({ name }: { name: string }) {
-  return <div>{name}</div>
+export default function Profile({ loaderData }: Route.ComponentProps) {
+  return <div>{loaderData.name}</div>
 }
 ```
 
-### 3.3 Parallel Data Fetching with Component Composition
+### 3.3 Non-Blocking Side Effects
 
-**Impact: CRITICAL (eliminates server-side waterfalls)**
+**Impact: MEDIUM (faster response times)**
 
-React Server Components execute sequentially within a tree. Restructure with composition to parallelize data fetching.
+Schedule work that should execute after a response is sent. This prevents logging, analytics, and other side effects from blocking the response.
 
-**Incorrect: Sidebar waits for Page's fetch to complete**
+**Incorrect: blocks response**
 
 ```tsx
-export default async function Page() {
-  const header = await fetchHeader()
-  return (
-    <div>
-      <div>{header}</div>
-      <Sidebar />
-    </div>
-  )
-}
+import { logUserAction } from './utils'
 
-async function Sidebar() {
-  const items = await fetchSidebarItems()
-  return <nav>{items.map(renderItem)}</nav>
+export async function action({ request }: Route.ActionArgs) {
+  // Perform mutation
+  await updateDatabase(request)
+  
+  // Logging blocks the response
+  await logUserAction(request)
+  
+  return { status: 'success' }
 }
 ```
 
-**Correct: both fetch simultaneously**
+**Correct: non-blocking**
 
 ```tsx
-async function Header() {
-  const data = await fetchHeader()
-  return <div>{data}</div>
-}
+import { logUserAction } from './utils'
 
-async function Sidebar() {
-  const items = await fetchSidebarItems()
-  return <nav>{items.map(renderItem)}</nav>
-}
-
-export default function Page() {
-  return (
-    <div>
-      <Header />
-      <Sidebar />
-    </div>
-  )
-}
-```
-
-**Alternative with children prop:**
-
-```tsx
-async function Layout({ children }: { children: ReactNode }) {
-  const header = await fetchHeader()
-  return (
-    <div>
-      <div>{header}</div>
-      {children}
-    </div>
-  )
-}
-
-async function Sidebar() {
-  const items = await fetchSidebarItems()
-  return <nav>{items.map(renderItem)}</nav>
-}
-
-export default function Page() {
-  return (
-    <Layout>
-      <Sidebar />
-    </Layout>
-  )
+export async function action({ request, context }: Route.ActionArgs) {
+  // Perform mutation
+  await updateDatabase(request)
+  
+  // Log in background
+  // Note: specific implementation depends on your deployment target.
+  // In Node.js, you can just not await the promise (handling errors).
+  // In Cloudflare Workers or Vercel Edge, use context.waitUntil().
+  
+  const logPromise = logUserAction(request).catch(console.error)
+  
+  if (context?.waitUntil) {
+    context.waitUntil(logPromise)
+  }
+  
+  return { status: 'success' }
 }
 ```
+
+The response is sent immediately while logging happens in the background.
+
+**Common use cases:**
+
+- Analytics tracking
+
+- Audit logging
+
+- Sending notifications
+
+- Cache invalidation
+
+- Cleanup tasks
 
 ### 3.4 Per-Request Deduplication with React.cache()
 
@@ -734,79 +702,60 @@ export const getCurrentUser = cache(async () => {
 
 Within a single request, multiple calls to `getCurrentUser()` execute the query only once.
 
-### 3.5 Use after() for Non-Blocking Operations
+### 3.5 Stream Slow Data with `defer`
 
-**Impact: MEDIUM (faster response times)**
+**Impact: HIGH (reduces time to first byte/paint)**
 
-Use Next.js's `after()` to schedule work that should execute after a response is sent. This prevents logging, analytics, and other side effects from blocking the response.
+Don't let slow data requirements block the entire route transition. Use `defer` to stream non-critical data.
 
-**Incorrect: blocks response**
+**Incorrect: blocks entire page until sidebar is ready**
 
 ```tsx
-import { logUserAction } from '@/app/utils'
+export async function loader() {
+  const header = await fetchHeader() // Fast (50ms)
+  const sidebar = await fetchSidebarItems() // Slow (500ms)
+  
+  return { header, sidebar }
+}
 
-export async function POST(request: Request) {
-  // Perform mutation
-  await updateDatabase(request)
-  
-  // Logging blocks the response
-  const userAgent = request.headers.get('user-agent') || 'unknown'
-  await logUserAction({ userAgent })
-  
-  return new Response(JSON.stringify({ status: 'success' }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' }
-  })
+export default function Page({ loaderData }: Route.ComponentProps) {
+  return (
+    <div>
+      <Header data={loaderData.header} />
+      <Sidebar data={loaderData.sidebar} />
+    </div>
+  )
 }
 ```
 
-**Correct: non-blocking**
+**Correct: page renders immediately, sidebar streams in**
 
 ```tsx
-import { after } from 'next/server'
-import { headers, cookies } from 'next/headers'
-import { logUserAction } from '@/app/utils'
+import { defer } from 'react-router'
 
-export async function POST(request: Request) {
-  // Perform mutation
-  await updateDatabase(request)
+export async function loader() {
+  const header = await fetchHeader() // Critical: await it
+  const sidebarPromise = fetchSidebarItems() // Non-critical: promise
   
-  // Log after response is sent
-  after(async () => {
-    const userAgent = (await headers()).get('user-agent') || 'unknown'
-    const sessionCookie = (await cookies()).get('session-id')?.value || 'anonymous'
-    
-    logUserAction({ sessionCookie, userAgent })
-  })
-  
-  return new Response(JSON.stringify({ status: 'success' }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' }
+  return defer({
+    header,
+    sidebar: sidebarPromise,
   })
 }
+
+export default function Page({ loaderData }: Route.ComponentProps) {
+  return (
+    <div>
+      <Header data={loaderData.header} />
+      <Suspense fallback={<SidebarSkeleton />}>
+        <Await resolve={loaderData.sidebar}>
+          {(sidebar) => <Sidebar data={sidebar} />}
+        </Await>
+      </Suspense>
+    </div>
+  )
+}
 ```
-
-The response is sent immediately while logging happens in the background.
-
-**Common use cases:**
-
-- Analytics tracking
-
-- Audit logging
-
-- Sending notifications
-
-- Cache invalidation
-
-- Cleanup tasks
-
-**Important notes:**
-
-- `after()` runs even if the response fails or redirects
-
-- Works in Server Actions, Route Handlers, and Server Components
-
-Reference: [https://nextjs.org/docs/app/api-reference/functions/after](https://nextjs.org/docs/app/api-reference/functions/after)
 
 ---
 
@@ -820,7 +769,7 @@ Automatic deduplication and efficient data fetching patterns reduce redundant ne
 
 **Impact: LOW (single listener for N components)**
 
-Use `useSWRSubscription()` to share global event listeners across component instances.
+Avoid registering multiple listeners for the same event type across different components. Use a single listener and a subscription pattern.
 
 **Incorrect: N instances = N listeners**
 
@@ -838,59 +787,46 @@ function useKeyboardShortcut(key: string, callback: () => void) {
 }
 ```
 
-When using the `useKeyboardShortcut` hook multiple times, each instance will register a new listener.
-
-**Correct: N instances = 1 listener**
+**Correct: Singleton listener with subscription**
 
 ```tsx
-import useSWRSubscription from 'swr/subscription'
+// Singleton listener setup
+type Callback = (e: KeyboardEvent) => void
+const subscribers = new Set<Callback>()
 
-// Module-level Map to track callbacks per key
-const keyCallbacks = new Map<string, Set<() => void>>()
-
-function useKeyboardShortcut(key: string, callback: () => void) {
-  // Register this callback in the Map
-  useEffect(() => {
-    if (!keyCallbacks.has(key)) {
-      keyCallbacks.set(key, new Set())
-    }
-    keyCallbacks.get(key)!.add(callback)
-
-    return () => {
-      const set = keyCallbacks.get(key)
-      if (set) {
-        set.delete(callback)
-        if (set.size === 0) {
-          keyCallbacks.delete(key)
-        }
-      }
-    }
-  }, [key, callback])
-
-  useSWRSubscription('global-keydown', () => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.metaKey && keyCallbacks.has(e.key)) {
-        keyCallbacks.get(e.key)!.forEach(cb => cb())
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+let listenerRegistered = false
+function ensureListener() {
+  if (listenerRegistered || typeof window === 'undefined') return
+  
+  window.addEventListener('keydown', (e: KeyboardEvent) => {
+    subscribers.forEach(cb => cb(e))
   })
+  listenerRegistered = true
 }
 
-function Profile() {
-  // Multiple shortcuts will share the same listener
-  useKeyboardShortcut('p', () => { /* ... */ }) 
-  useKeyboardShortcut('k', () => { /* ... */ })
-  // ...
+function useKeyboardShortcut(key: string, callback: () => void) {
+  useEffect(() => {
+    ensureListener()
+    
+    const handler = (e: KeyboardEvent) => {
+      if (e.metaKey && e.key === key) {
+        callback()
+      }
+    }
+    
+    subscribers.add(handler)
+    return () => {
+      subscribers.delete(handler)
+    }
+  }, [key, callback])
 }
 ```
 
-### 4.2 Use SWR for Automatic Deduplication
+### 4.2 Use React Query for Automatic Deduplication
 
 **Impact: MEDIUM-HIGH (automatic deduplication)**
 
-SWR enables request deduplication, caching, and revalidation across component instances.
+React Query (TanStack Query) enables request deduplication, caching, and revalidation across component instances.
 
 **Incorrect: no deduplication, each instance fetches**
 
@@ -908,35 +844,47 @@ function UserList() {
 **Correct: multiple instances share one request**
 
 ```tsx
-import useSWR from 'swr'
+import { useQuery } from '@tanstack/react-query'
 
 function UserList() {
-  const { data: users } = useSWR('/api/users', fetcher)
+  const { data: users } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => fetch('/api/users').then(r => r.json())
+  })
 }
 ```
 
-**For immutable data:**
+**For immutable data: long stale time**
 
 ```tsx
-import { useImmutableSWR } from '@/lib/swr'
-
 function StaticContent() {
-  const { data } = useImmutableSWR('/api/config', fetcher)
+  const { data } = useQuery({
+    queryKey: ['config'],
+    queryFn: fetchConfig,
+    staleTime: Infinity,
+  })
 }
 ```
 
 **For mutations:**
 
 ```tsx
-import { useSWRMutation } from 'swr/mutation'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 function UpdateButton() {
-  const { trigger } = useSWRMutation('/api/user', updateUser)
-  return <button onClick={() => trigger()}>Update</button>
+  const queryClient = useQueryClient()
+  const { mutate } = useMutation({
+    mutationFn: updateUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+    },
+  })
+  
+  return <button onClick={() => mutate()}>Update</button>
 }
 ```
 
-Reference: [https://swr.vercel.app](https://swr.vercel.app)
+Reference: [https://tanstack.com/query/latest](https://tanstack.com/query/latest)
 
 ---
 
@@ -2241,8 +2189,8 @@ function SearchInput({ onSearch }: { onSearch: (q: string) => void }) {
 ## References
 
 1. [https://react.dev](https://react.dev)
-2. [https://nextjs.org](https://nextjs.org)
-3. [https://swr.vercel.app](https://swr.vercel.app)
+2. [https://reactrouter.com](https://reactrouter.com)
+3. [https://tanstack.com/query/latest](https://tanstack.com/query/latest)
 4. [https://github.com/shuding/better-all](https://github.com/shuding/better-all)
 5. [https://github.com/isaacs/node-lru-cache](https://github.com/isaacs/node-lru-cache)
 6. [https://vercel.com/blog/how-we-optimized-package-imports-in-next-js](https://vercel.com/blog/how-we-optimized-package-imports-in-next-js)

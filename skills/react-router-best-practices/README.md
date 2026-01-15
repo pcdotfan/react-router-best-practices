@@ -1,6 +1,6 @@
-# React Best Practices
+# React Router Best Practices
 
-A structured repository for creating and maintaining React Best Practices optimized for agents and LLMs.
+A structured repository for creating and maintaining React Router Best Practices optimized for agents and LLMs.
 
 ## Structure
 

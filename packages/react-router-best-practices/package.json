@@ -1,7 +1,7 @@
 {
-  "name": "react-best-practices-build",
+  "name": "react-router-best-practices",
   "version": "1.0.0",
-  "description": "Build tooling for React Best Practices skill",
+  "description": "Build tooling for React Router Best Practices skill",
   "type": "module",
   "scripts": {
     "build": "pnpm build-agents && pnpm extract-tests",

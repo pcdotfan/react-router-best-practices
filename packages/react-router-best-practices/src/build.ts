@@ -22,13 +22,13 @@ function generateMarkdown(
     references?: string[]
   }
 ): string {
-  let md = `# React Best Practices\n\n`
+  let md = `# React Router Best Practices\n\n`
   md += `**Version ${metadata.version}**  \n`
   md += `${metadata.organization}  \n`
   md += `${metadata.date}\n\n`
   md += `> **Note:**  \n`
   md += `> This document is mainly for agents and LLMs to follow when maintaining,  \n`
-  md += `> generating, or refactoring React and Next.js codebases at Vercel. Humans  \n`
+  md += `> generating, or refactoring React and React Router v7 codebases at Vercel. Humans  \n`
   md += `> may also find it useful, but guidance here is optimized for automation  \n`
   md += `> and consistency by AI-assisted workflows.\n\n`
   md += `---\n\n`
@@ -233,7 +233,7 @@ async function build() {
           year: 'numeric',
         }),
         abstract:
-          'Performance optimization guide for React and Next.js applications, ordered by impact.',
+          'Performance optimization guide for React and React Router v7 applications, ordered by impact.',
       }
     }
 

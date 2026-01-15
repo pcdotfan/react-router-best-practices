@@ -2,7 +2,7 @@
 title: Defer Non-Critical Third-Party Libraries
 impact: MEDIUM
 impactDescription: loads after hydration
-tags: bundle, third-party, analytics, defer
+tags: bundle, third-party, analytics, defer, react-lazy
 ---
 
 ## Defer Non-Critical Third-Party Libraries
@@ -29,19 +29,19 @@ export default function RootLayout({ children }) {
 **Correct (loads after hydration):**
 
 ```tsx
-import dynamic from 'next/dynamic'
+import { lazy, Suspense } from 'react'
 
-const Analytics = dynamic(
-  () => import('@vercel/analytics/react').then(m => m.Analytics),
-  { ssr: false }
-)
+// Lazy load the component
+const Analytics = lazy(() => import('@vercel/analytics/react').then(m => ({ default: m.Analytics })))
 
 export default function RootLayout({ children }) {
   return (
     <html>
       <body>
         {children}
-        <Analytics />
+        <Suspense fallback={null}>
+          <Analytics />
+        </Suspense>
       </body>
     </html>
   )

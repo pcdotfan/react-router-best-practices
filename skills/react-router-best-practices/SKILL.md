@@ -1,19 +1,19 @@
 ---
-name: vercel-react-best-practices
-description: React and Next.js performance optimization guidelines from Vercel Engineering. This skill should be used when writing, reviewing, or refactoring React/Next.js code to ensure optimal performance patterns. Triggers on tasks involving React components, Next.js pages, data fetching, bundle optimization, or performance improvements.
+name: react-router-best-practices
+description: React and React Router v7 performance optimization guidelines from Vercel Engineering. This skill should be used when writing, reviewing, or refactoring React/React Router v7 code to ensure optimal performance patterns. Triggers on tasks involving React components, React Router v7 pages, data fetching, bundle optimization, or performance improvements.
 ---
 
-# Vercel React Best Practices
+# Vercel React Router Best Practices
 
-Comprehensive performance optimization guide for React and Next.js applications, maintained by Vercel. Contains 45 rules across 8 categories, prioritized by impact to guide automated refactoring and code generation.
+Comprehensive performance optimization guide for React and React Router v7 applications, maintained by Vercel. Contains 45 rules across 8 categories, prioritized by impact to guide automated refactoring and code generation.
 
 ## When to Apply
 
 Reference these guidelines when:
-- Writing new React components or Next.js pages
+- Writing new React components or React Router v7 pages
 - Implementing data fetching (client or server-side)
 - Reviewing code for performance issues
-- Refactoring existing React/Next.js code
+- Refactoring existing React/React Router v7 code
 - Optimizing bundle size or load times
 
 ## Rule Categories by Priority

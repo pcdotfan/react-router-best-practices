@@ -33,17 +33,17 @@
   },
   {
     "ruleId": "",
-    "ruleTitle": "Prevent Waterfall Chains in API Routes",
+    "ruleTitle": "Prevent Waterfall Chains in Loaders/Actions",
     "type": "bad",
-    "code": "export async function GET(request: Request) {\n  const session = await auth()\n  const config = await fetchConfig()\n  const data = await fetchData(session.user.id)\n  return Response.json({ data, config })\n}",
+    "code": "export async function loader({ request, params }) {\n  const session = await auth()\n  const config = await fetchConfig()\n  const data = await fetchData(session.user.id)\n  return { data, config }\n}",
     "language": "typescript",
     "description": "config waits for auth, data waits for both"
   },
   {
     "ruleId": "",
-    "ruleTitle": "Prevent Waterfall Chains in API Routes",
+    "ruleTitle": "Prevent Waterfall Chains in Loaders/Actions",
     "type": "good",
-    "code": "export async function GET(request: Request) {\n  const sessionPromise = auth()\n  const configPromise = fetchConfig()\n  const session = await sessionPromise\n  const [config, data] = await Promise.all([\n    configPromise,\n    fetchData(session.user.id)\n  ])\n  return Response.json({ data, config })\n}",
+    "code": "export async function loader({ request, params }) {\n  const sessionPromise = auth()\n  const configPromise = fetchConfig()\n  const session = await sessionPromise\n  const [config, data] = await Promise.all([\n    configPromise,\n    fetchData(session.user.id)\n  ])\n  return { data, config }\n}",
     "language": "typescript",
     "description": "auth and config start immediately"
   },
@@ -139,7 +139,7 @@
     "ruleId": "",
     "ruleTitle": "Defer Non-Critical Third-Party Libraries",
     "type": "good",
-    "code": "import dynamic from 'next/dynamic'\n\nconst Analytics = dynamic(\n  () => import('@vercel/analytics/react').then(m => m.Analytics),\n  { ssr: false }\n)\n\nexport default function RootLayout({ children }) {\n  return (\n    <html>\n      <body>\n        {children}\n        <Analytics />\n      </body>\n    </html>\n  )\n}",
+    "code": "import { lazy, Suspense } from 'react'\n\n// Lazy load the component\nconst Analytics = lazy(() => import('@vercel/analytics/react').then(m => ({ default: m.Analytics })))\n\nexport default function RootLayout({ children }) {\n  return (\n    <html>\n      <body>\n        {children}\n        <Suspense fallback={null}>\n          <Analytics />\n        </Suspense>\n      </body>\n    </html>\n  )\n}",
     "language": "tsx",
     "description": "loads after hydration"
   },
@@ -155,7 +155,7 @@
     "ruleId": "",
     "ruleTitle": "Dynamic Imports for Heavy Components",
     "type": "good",
-    "code": "import dynamic from 'next/dynamic'\n\nconst MonacoEditor = dynamic(\n  () => import('./monaco-editor').then(m => m.MonacoEditor),\n  { ssr: false }\n)\n\nfunction CodePanel({ code }: { code: string }) {\n  return <MonacoEditor value={code} />\n}",
+    "code": "import { lazy, Suspense } from 'react'\n\nconst MonacoEditor = lazy(() => import('./monaco-editor').then(m => ({ default: m.MonacoEditor })))\n\nfunction CodePanel({ code }: { code: string }) {\n  return (\n    <Suspense fallback={<div>Loading editor...</div>}>\n      <MonacoEditor value={code} />\n    </Suspense>\n  )\n}",
     "language": "tsx",
     "description": "Monaco loads on demand"
   },
@@ -177,7 +177,7 @@
   },
   {
     "ruleId": "",
-    "ruleTitle": "Use SWR for Automatic Deduplication",
+    "ruleTitle": "Use React Query for Automatic Deduplication",
     "type": "bad",
     "code": "function UserList() {\n  const [users, setUsers] = useState([])\n  useEffect(() => {\n    fetch('/api/users')\n      .then(r => r.json())\n      .then(setUsers)\n  }, [])\n}",
     "language": "tsx",
@@ -185,9 +185,9 @@
   },
   {
     "ruleId": "",
-    "ruleTitle": "Use SWR for Automatic Deduplication",
+    "ruleTitle": "Use React Query for Automatic Deduplication",
     "type": "good",
-    "code": "import useSWR from 'swr'\n\nfunction UserList() {\n  const { data: users } = useSWR('/api/users', fetcher)\n}",
+    "code": "import { useQuery } from '@tanstack/react-query'\n\nfunction UserList() {\n  const { data: users } = useQuery({\n    queryKey: ['users'],\n    queryFn: () => fetch('/api/users').then(r => r.json())\n  })\n}",
     "language": "tsx",
     "description": "multiple instances share one request"
   },
@@ -601,49 +601,49 @@
   },
   {
     "ruleId": "",
-    "ruleTitle": "Use after() for Non-Blocking Operations",
+    "ruleTitle": "Non-Blocking Side Effects",
     "type": "bad",
-    "code": "import { logUserAction } from '@/app/utils'\n\nexport async function POST(request: Request) {\n  // Perform mutation\n  await updateDatabase(request)\n  \n  // Logging blocks the response\n  const userAgent = request.headers.get('user-agent') || 'unknown'\n  await logUserAction({ userAgent })\n  \n  return new Response(JSON.stringify({ status: 'success' }), {\n    status: 200,\n    headers: { 'Content-Type': 'application/json' }\n  })\n}",
+    "code": "import { logUserAction } from './utils'\n\nexport async function action({ request }: Route.ActionArgs) {\n  // Perform mutation\n  await updateDatabase(request)\n  \n  // Logging blocks the response\n  await logUserAction(request)\n  \n  return { status: 'success' }\n}",
     "language": "tsx",
     "description": "blocks response"
   },
   {
     "ruleId": "",
-    "ruleTitle": "Use after() for Non-Blocking Operations",
+    "ruleTitle": "Non-Blocking Side Effects",
     "type": "good",
-    "code": "import { after } from 'next/server'\nimport { headers, cookies } from 'next/headers'\nimport { logUserAction } from '@/app/utils'\n\nexport async function POST(request: Request) {\n  // Perform mutation\n  await updateDatabase(request)\n  \n  // Log after response is sent\n  after(async () => {\n    const userAgent = (await headers()).get('user-agent') || 'unknown'\n    const sessionCookie = (await cookies()).get('session-id')?.value || 'anonymous'\n    \n    logUserAction({ sessionCookie, userAgent })\n  })\n  \n  return new Response(JSON.stringify({ status: 'success' }), {\n    status: 200,\n    headers: { 'Content-Type': 'application/json' }\n  })\n}",
+    "code": "import { logUserAction } from './utils'\n\nexport async function action({ request, context }: Route.ActionArgs) {\n  // Perform mutation\n  await updateDatabase(request)\n  \n  // Log in background\n  // Note: specific implementation depends on your deployment target.\n  // In Node.js, you can just not await the promise (handling errors).\n  // In Cloudflare Workers or Vercel Edge, use context.waitUntil().\n  \n  const logPromise = logUserAction(request).catch(console.error)\n  \n  if (context?.waitUntil) {\n    context.waitUntil(logPromise)\n  }\n  \n  return { status: 'success' }\n}",
     "language": "tsx",
     "description": "non-blocking"
   },
   {
     "ruleId": "",
-    "ruleTitle": "Parallel Data Fetching with Component Composition",
+    "ruleTitle": "Stream Slow Data with `defer`",
     "type": "bad",
-    "code": "export default async function Page() {\n  const header = await fetchHeader()\n  return (\n    <div>\n      <div>{header}</div>\n      <Sidebar />\n    </div>\n  )\n}\n\nasync function Sidebar() {\n  const items = await fetchSidebarItems()\n  return <nav>{items.map(renderItem)}</nav>\n}",
+    "code": "export async function loader() {\n  const header = await fetchHeader() // Fast (50ms)\n  const sidebar = await fetchSidebarItems() // Slow (500ms)\n  \n  return { header, sidebar }\n}\n\nexport default function Page({ loaderData }: Route.ComponentProps) {\n  return (\n    <div>\n      <Header data={loaderData.header} />\n      <Sidebar data={loaderData.sidebar} />\n    </div>\n  )\n}",
     "language": "tsx",
-    "description": "Sidebar waits for Page's fetch to complete"
+    "description": "blocks entire page until sidebar is ready"
   },
   {
     "ruleId": "",
-    "ruleTitle": "Parallel Data Fetching with Component Composition",
+    "ruleTitle": "Stream Slow Data with `defer`",
     "type": "good",
-    "code": "async function Header() {\n  const data = await fetchHeader()\n  return <div>{data}</div>\n}\n\nasync function Sidebar() {\n  const items = await fetchSidebarItems()\n  return <nav>{items.map(renderItem)}</nav>\n}\n\nexport default function Page() {\n  return (\n    <div>\n      <Header />\n      <Sidebar />\n    </div>\n  )\n}",
+    "code": "import { defer } from 'react-router'\n\nexport async function loader() {\n  const header = await fetchHeader() // Critical: await it\n  const sidebarPromise = fetchSidebarItems() // Non-critical: promise\n  \n  return defer({\n    header,\n    sidebar: sidebarPromise,\n  })\n}\n\nexport default function Page({ loaderData }: Route.ComponentProps) {\n  return (\n    <div>\n      <Header data={loaderData.header} />\n      <Suspense fallback={<SidebarSkeleton />}>\n        <Await resolve={loaderData.sidebar}>\n          {(sidebar) => <Sidebar data={sidebar} />}\n        </Await>\n      </Suspense>\n    </div>\n  )\n}",
     "language": "tsx",
-    "description": "both fetch simultaneously"
+    "description": "page renders immediately, sidebar streams in"
   },
   {
     "ruleId": "",
-    "ruleTitle": "Minimize Serialization at RSC Boundaries",
+    "ruleTitle": "Minimize Data Serialization",
     "type": "bad",
-    "code": "async function Page() {\n  const user = await fetchUser()  // 50 fields\n  return <Profile user={user} />\n}\n\n'use client'\nfunction Profile({ user }: { user: User }) {\n  return <div>{user.name}</div>  // uses 1 field\n}",
+    "code": "export async function loader() {\n  const user = await fetchUser() // 50 fields\n  return { user }\n}\n\nexport default function Profile({ loaderData }: Route.ComponentProps) {\n  return <div>{loaderData.user.name}</div> // uses 1 field\n}",
     "language": "tsx",
     "description": "serializes all 50 fields"
   },
   {
     "ruleId": "",
-    "ruleTitle": "Minimize Serialization at RSC Boundaries",
+    "ruleTitle": "Minimize Data Serialization",
     "type": "good",
-    "code": "async function Page() {\n  const user = await fetchUser()\n  return <Profile name={user.name} />\n}\n\n'use client'\nfunction Profile({ name }: { name: string }) {\n  return <div>{name}</div>\n}",
+    "code": "export async function loader() {\n  const user = await fetchUser()\n  return { name: user.name }\n}\n\nexport default function Profile({ loaderData }: Route.ComponentProps) {\n  return <div>{loaderData.name}</div>\n}",
     "language": "tsx",
     "description": "serializes only 1 field"
   }

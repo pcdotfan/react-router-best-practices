@@ -1,23 +1,23 @@
-name: React Best Practices CI
+name: React Router Best Practices CI
 
 on:
   push:
     branches: [main]
     paths:
-      - 'skills/react-best-practices/**'
-      - 'packages/react-best-practices-build/**'
+      - 'skills/react-router-best-practices/**'
+      - 'packages/react-router-best-practices-build/**'
   pull_request:
     branches: [main]
     paths:
-      - 'skills/react-best-practices/**'
-      - 'packages/react-best-practices-build/**'
+      - 'skills/react-router-best-practices/**'
+      - 'packages/react-router-best-practices-build/**'
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: packages/react-best-practices-build
+        working-directory: packages/react-router-best-practices-build
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
-          cache-dependency-path: packages/react-best-practices-build/pnpm-lock.yaml
+          cache-dependency-path: packages/react-router-best-practices-build/pnpm-lock.yaml
       - run: pnpm install
       - run: pnpm validate
       - run: pnpm build

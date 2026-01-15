@@ -1,111 +1,35 @@
-# Agent Skills
+# React Router Best Practices
 
-A collection of skills for AI coding agents. Skills are packaged instructions and scripts that extend agent capabilities.
+A specialized collection of performance optimization guidelines and architectural patterns for React Router v7, formatted as "skills" for AI coding agents.
 
-Skills follow the [Agent Skills](https://agentskills.io/) format.
+## Overview
 
-## Available Skills
+This repository hosts the **react-router-best-practices** skill, a comprehensive set of 40+ rules designed to help developers and AI agents build high-performance React Router v7 applications. These rules cover critical areas such as waterfall elimination, bundle size optimization, and server-side data streaming.
 
-### react-best-practices
+## Skills
 
-React and Next.js performance optimization guidelines from Vercel Engineering. Contains 40+ rules across 8 categories, prioritized by impact.
+### react-router-best-practices
 
-**Use when:**
-- Writing new React components or Next.js pages
-- Implementing data fetching (client or server-side)
-- Reviewing code for performance issues
-- Optimizing bundle size or load times
+This skill provides actionable guidance on:
 
-**Categories covered:**
-- Eliminating waterfalls (Critical)
-- Bundle size optimization (Critical)
-- Server-side performance (High)
-- Client-side data fetching (Medium-High)
-- Re-render optimization (Medium)
-- Rendering performance (Medium)
-- JavaScript micro-optimizations (Low-Medium)
+- **Eliminating Waterfalls:** Utilizing React Router v7 Loaders and `Promise.all` to fetch data in parallel.
+- **Streaming & Defer:** Using `defer` to stream slow data without blocking the UI.
+- **Bundle Optimization:** Implementing `React.lazy` and `Suspense` for code splitting.
+- **Server-Side Performance:** Non-blocking side effects and efficient data serialization in Loaders/Actions.
+- **Rendering Optimization:** Reducing re-renders and optimizing DOM interactions.
 
-### web-design-guidelines
-
-Review UI code for compliance with web interface best practices. Audits your code for 100+ rules covering accessibility, performance, and UX.
-
-**Use when:**
-- "Review my UI"
-- "Check accessibility"
-- "Audit design"
-- "Review UX"
-- "Check my site against best practices"
-
-**Categories covered:**
-- Accessibility (aria-labels, semantic HTML, keyboard handlers)
-- Focus States (visible focus, focus-visible patterns)
-- Forms (autocomplete, validation, error handling)
-- Animation (prefers-reduced-motion, compositor-friendly transforms)
-- Typography (curly quotes, ellipsis, tabular-nums)
-- Images (dimensions, lazy loading, alt text)
-- Performance (virtualization, layout thrashing, preconnect)
-- Navigation & State (URL reflects state, deep-linking)
-- Dark Mode & Theming (color-scheme, theme-color meta)
-- Touch & Interaction (touch-action, tap-highlight)
-- Locale & i18n (Intl.DateTimeFormat, Intl.NumberFormat)
-
-### vercel-deploy-claimable
-
-Deploy applications and websites to Vercel instantly. Designed for use with claude.ai and Claude Desktop to enable deployments directly from conversations. Deployments are "claimable" - users can transfer ownership to their own Vercel account.
-
-**Use when:**
-- "Deploy my app"
-- "Deploy this to production"
-- "Push this live"
-- "Deploy and give me the link"
-
-**Features:**
-- Auto-detects 40+ frameworks from `package.json`
-- Returns preview URL (live site) and claim URL (transfer ownership)
-- Handles static HTML projects automatically
-- Excludes `node_modules` and `.git` from uploads
-
-**How it works:**
-1. Packages your project into a tarball
-2. Detects framework (Next.js, Vite, Astro, etc.)
-3. Uploads to deployment service
-4. Returns preview URL and claim URL
-
-**Output:**
-```
-Deployment successful!
-
-Preview URL: https://skill-deploy-abc123.vercel.app
-Claim URL:   https://vercel.com/claim-deployment?code=...
-```
-
-## Installation
-
-```bash
-npx add-skill vercel-labs/agent-skills
-```
+**Location:** `skills/react-router-best-practices`
 
 ## Usage
 
-Skills are automatically available once installed. The agent will use them when relevant tasks are detected.
+This repository is structured to be consumed by AI agents to enhance their coding capabilities. The rules are compiled into `AGENTS.md` files which serve as a knowledge base for the agent.
 
-**Examples:**
-```
-Deploy my app
-```
-```
-Review this React component for performance issues
-```
-```
-Help me optimize this Next.js page
-```
+## Credits
 
-## Skill Structure
+Special thanks to the following projects for their inspiration and foundation:
 
-Each skill contains:
-- `SKILL.md` - Instructions for the agent
-- `scripts/` - Helper scripts for automation (optional)
-- `references/` - Supporting documentation (optional)
+- **[vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills)** for the original Agent Skills framework and content structure.
+- **[remix-run/react-router](https://github.com/remix-run/react-router)** for the powerful routing library that makes these patterns possible.
 
 ## License
 
